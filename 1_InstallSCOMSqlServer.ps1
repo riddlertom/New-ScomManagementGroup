@@ -12,6 +12,12 @@
         UpdateToLatest - After feature installations, will download and apply latest CU update for SQL roles
         RSInit - Initializes and creates the post-install db script for Reporting Services
         setSQLServerPort - Allows you to change the sql server listening port on all IPs (automatically called by 'SQLEngine' operation)
+
+.NOTES
+    Author: Tom Riddle
+.LINK
+    https://github.com/riddlertom/New-ScomManagementGroup
+
 #>
 param(
     # Service name. Mandatory, by default MSSQLSERVER

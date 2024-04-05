@@ -42,12 +42,12 @@
         
 
 .NOTES
+    Author: Tom Riddle
     Makes heavy use of windowsPowershell remoting and SCOM "OperationsManager" modules
     The latest CU should be applied before alot of these fixes.
 
 .LINK
-
-
+    https://github.com/riddlertom/New-ScomManagementGroup
 #>
 param(
     # Service name. Mandatory, by default MSSQLSERVER

@@ -12,9 +12,9 @@
         UnblockFileWarnings - Adds the NAS server locations to the machine's trusted sites so that installs will start without confirmation
         InstallWebConsolePreReqs - Enables roles needed for the SCOM webconsole
 .NOTES
-
+    Author: Tom Riddle
 .LINK
-
+    https://github.com/riddlertom/New-ScomManagementGroup
 #>
 param(
     # Service name. Mandatory, by default MSSQLSERVER

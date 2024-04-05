@@ -22,8 +22,10 @@
         ApplyLicense - will attempt to license SCOM if possible
         AddCustomReportExtensions - Fixes a bug that prevents SCOM from adding all SSRS reports        
 .NOTES
-
+    Author: Tom Riddle
 .LINK
+    https://github.com/riddlertom/New-ScomManagementGroup
+
     https://learn.microsoft.com/en-us/system-center/scom/install-using-cmdline
 
 #>

@@ -19,9 +19,11 @@
         
 
 .NOTES
+    Author: Tom Riddle
     Makes heavy use of windowsPowershell remoting, and SSH modules
 
 .LINK
+    https://github.com/riddlertom/New-ScomManagementGroup
 #>
 param(
     [ValidateSet('AddNewWinAgentMG','RemoveNewWinAgentMG','AddOldWinAgentMG','RemoveOldWinAgentMG','GetCurrentWinAgentMG')]
