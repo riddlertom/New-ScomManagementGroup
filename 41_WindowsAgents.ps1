@@ -132,7 +132,7 @@ Function Get-SCOMManagementGroup {
 
 #region: INIT
 
-$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory 
+$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory -Force
 Start-Transcript -Path ("$PSScriptRoot\Logs\$($script:MyInvocation.MyCommand.name).{0:MM-dd-yyyy_hh.mm.ss.mm}.log" -f (get-date))
 
 #$domainJoinCred = New-Object System.Management.Automation.PsCredential($domainUser,$secstring)

@@ -43,7 +43,7 @@ param(
 
 #region: INIT
 
-$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory 
+$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory -Force
 Start-Transcript -Path ("$PSScriptRoot\Logs\$($script:MyInvocation.MyCommand.name).{0:MM-dd-yyyy_hh.mm.ss.mm}.log" -f (get-date))
 
 if($PSVersionTable.PSVersion.Major -ne 5){write-error "This script must be ran on WINDOWSPowershell 5.1 for old dotnetframework objs to work";return}

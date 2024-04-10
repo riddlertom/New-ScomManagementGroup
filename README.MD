@@ -90,15 +90,18 @@ New-ScomManagementGroup is a collection of Powershell scripts designed to help S
 
 ## On the Datawarehouse server, finish best SQL server best practices with (est. 30 min):
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation SetSqlHighPerfPowerPlan,setTimeZone,setSystemLocaleENUS```
+
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation PreSizeSCOMOpsDB,EnableOpsDBAutoGrowth,PreSizeSCOMOpsDWH,OpsDBEnableBroker,OpsDBEnableCLR ```
 
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation SetDbsSqlMaintPlan # For sqlserver(s), MANUALLY schedule the sqlagent jobs timed properly```
+
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation GetDbsDOPRecommend # MANUALLY Run the 'Change Script' recommended for sqlServers after consulting DBAs```
 
 ### note: This affects the opsdb and opsdwh server(s) 
 
 ## Still on DWH server, setup reporting with (est. 30 min):
 ```.\1_InstallSCOMSqlServer.ps1 -configFilePath .\_config2019Prod.ps1 -FEATURES RS,RSInit ## Ignore assembly errors. Look for IsInitialized=true```
+
 ```.\2_InstallSCOM.ps1 -configFilePath .\_config2019Prod.ps1 -Roles OMReporting,AddCustomReportExtensions```
 
 
@@ -145,7 +148,26 @@ Note: You may need to manually copy certs to c:\temp first if the Gateway server
 ## Optionally: On All Management Servers and Gateway servers, if you want to enforce higher TLS1.2 security, run (est. 10 min):
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation EnforceTls12```
 
-## Now manually go through all SCOM roles and update SCOM servers to UR=latest via windows update or KB MSIs (don't forget to download+import latest linux packs)
+## Now go through and update SCOM servers to UR=latest via windows update.
+As of SCOM 2019 UR 1, Microsoft/Windows Update will patch your management servers, update SQL and Management Packs with [Simplified patching](https://support.microsoft.com/en-gb/topic/simplified-scom-2019-management-server-patching-cb14f0f5-ab82-44bf-f591-dfa8c8474e13).
+
+Per [Kevin](https://kevinholman.com/2023/04/19/ur5-for-scom-2019-step-by-step/), the order of operations is:
+
+
+1. Management Servers (only patch+reboot one at a time to allow for agent failover)
+1. Audit Collection Servers
+1. Web Console Servers
+1. Gateway Servers
+1. Operations Console Servers
+1. Reporting Server
+1. Apply Agent Updates
+1. Update Unix/Linux MP’s and Agents
+
+If you have pending critical windows security updates, those may need to first be applied and then reboot.
+The following command can be ran until the server no longer patches & reboots:
+
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation UpdateMicrosoft```
+
 
 # Agents 
 ## Windows: dual-home Windows Agents with:
@@ -159,3 +181,5 @@ Note: You may need to manually copy certs to c:\temp first if the Gateway server
 
 ## Linux: After testing, remove the old Environment from Linux Agents with:
 `.\42_LinuxAgents.ps1 -configFilePath .\_config2019Prod.ps1 -Operation RemoveAgentFromOldMG`
+
+

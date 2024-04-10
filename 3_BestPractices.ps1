@@ -11,6 +11,7 @@
         On Allservers:
         setTimeZone - Sets the timezone. Recommend UTC time as it can affect database entries. Run on all Management Servers and Gateways, and databases
         setSystemLocaleENUS - Uncommon. Sets the system locale to enus. Solves certain problems if not set. Run on all Management Servers and Gateways and databases
+        UpdateMicrosoft - Will tell PSWindowsUpdate to update both Windows and Microsoft Products (like SCOM, office, etc), and *AUTO REBOOT*
 
         Datawarehouse:
         PreSizeSCOMOpsDB - Alters SCOM OperationsManager DB and LOG larger sizes to increase performance/avoid FILEGROUP FULL errors
@@ -51,7 +52,7 @@
 #>
 param(
     # Service name. Mandatory, by default MSSQLSERVER
-    [ValidateSet('EnableScomLinuxMonitoring','AutoApproveNewWinAgents','InitTLSSupport','PreSizeSCOMOpsDB','PreSizeSCOMOpsDWH','EnableOpsDBAutoGrowth','EnableAgentDefaultProxying','ImportLogonasServicePack','ImportSelfMaintenanceMP','SetSqlHighPerfPowerPlan','SetHealthServiceRegTweaks','setTimeZone','setSystemLocaleENUS','addScomSDKSPNs','OpsDBEnableBroker','OpsDBEnableCLR','GetDbsDOPRecommend','EnforceTls12','SetDbsSqlMaintPlan','SetWebBindingSSL')]
+    [ValidateSet('EnableScomLinuxMonitoring','AutoApproveNewWinAgents','InitTLSSupport','PreSizeSCOMOpsDB','PreSizeSCOMOpsDWH','EnableOpsDBAutoGrowth','EnableAgentDefaultProxying','ImportLogonasServicePack','ImportSelfMaintenanceMP','SetSqlHighPerfPowerPlan','SetHealthServiceRegTweaks','setTimeZone','setSystemLocaleENUS','addScomSDKSPNs','OpsDBEnableBroker','OpsDBEnableCLR','GetDbsDOPRecommend','EnforceTls12','SetDbsSqlMaintPlan','SetWebBindingSSL','UpdateMicrosoft')]
     [string[]]$Operation,
 
     [string]$configFilePath = "$PSScriptRoot\_config.ps1"
@@ -90,7 +91,7 @@ Function priv_expandSCOMsetup {
 
 #region: INIT
 
-$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory 
+$nullme = new-item -Path "$PSScriptRoot\Logs" -ItemType Directory -Force
 Start-Transcript -Path ("$PSScriptRoot\Logs\$($script:MyInvocation.MyCommand.name).{0:MM-dd-yyyy_hh.mm.ss.mm}.log" -f (get-date))
 
 $currentDir = $PSScriptRoot.clone()
@@ -1009,6 +1010,23 @@ if($Operation -contains 'SetWebBindingSSL'){
 
 }
 
+
+
+if($Operation -contains 'UpdateMicrosoft'){
+ 
+
+    write-host "[UpdateMicrosoft] starting operation"
+
+    $Module = get-Module PSWindowsUpdate -ListAvailable
+    if(!$Module ){ $Module = Install-Module PSWindowsUpdate -Force -verbose -PassThru}
+    if(!$Module){Write-Error "Unable to install needed module: PSWindowsUpdate";pause;return}
+    try{Import-Module PSWindowsUpdate -ea 0}catch{continue} 
+
+    Install-WindowsUpdate -MicrosoftUpdate -AcceptAll -AutoReboot -verbose
+
+    write-host "[UpdateMicrosoft] Finished Operation"
+
+}
 
 
 #page file to be 1.5 times ram size on sql servers
