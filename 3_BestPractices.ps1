@@ -28,16 +28,19 @@
         On All MS/Gateways:
         SetHealthServiceRegTweaks - Adds performance tweaks for large environments. Run on all Management Servers and Gateways.
         EnforceTls12 - For higher security environments. Sets up prereqs and restricts communications to tls12 vs insecure lower versions. Run on all Management,Gateway,MsSql,Webconsole servers.
+        ExportSCXCert - Will save this GW/MS SCX cert to NAS backup path. (Run on all Gateways First, then the RMS if PSremoting works)
+        ImportSCXCerts - Will import SCX certs from all the other GWs/MSs at the NAS backup path (Run on all Gateways First, then the RMS if PSremoting works)
+
 
         On RMS:        
         AutoApproveNewWinAgents - Tells SCOM to let manually-installed SCOM agents report in without manual approval
         InitTLSSupport - Lets SCOM console talk to MP Catalog
         ImportLogonasServicePack - This runs on all windows agents to enable the logonasservice right for action accounts if it is not present already.
         ImportSelfMaintenanceMP - TODO:Helps with standard scom admin maintenance tasks by importing Kevin Holman's selfMaintenance pack.
-
-        EnableScomLinuxMonitoring - Generates and imports certs for SCX monitoring. Also imports Unix MPs from setup media.
+        EnableScomLinuxMonitoring - Imports Unix MPs from setup media. Also creates Linux pool and runas accounts and associates to profiles 
         addScomSDKSPNs - registers SCOM sdk account spns for all non-gateway management servers in activedirectory.
 
+        Webconsole and Certifiate Authority:
         SetWebBindingSSL - Enables port 443 ssl for IIS's "Default Web Site" 
 
         
@@ -52,7 +55,7 @@
 #>
 param(
     # Service name. Mandatory, by default MSSQLSERVER
-    [ValidateSet('EnableScomLinuxMonitoring','AutoApproveNewWinAgents','InitTLSSupport','PreSizeSCOMOpsDB','PreSizeSCOMOpsDWH','EnableOpsDBAutoGrowth','EnableAgentDefaultProxying','ImportLogonasServicePack','ImportSelfMaintenanceMP','SetSqlHighPerfPowerPlan','SetHealthServiceRegTweaks','setTimeZone','setSystemLocaleENUS','addScomSDKSPNs','OpsDBEnableBroker','OpsDBEnableCLR','GetDbsDOPRecommend','EnforceTls12','SetDbsSqlMaintPlan','SetWebBindingSSL','UpdateMicrosoft')]
+    [ValidateSet('EnableScomLinuxMonitoring','ImportSCXCerts','ExportSCXCert','AutoApproveNewWinAgents','InitTLSSupport','PreSizeSCOMOpsDB','PreSizeSCOMOpsDWH','EnableOpsDBAutoGrowth','EnableAgentDefaultProxying','ImportLogonasServicePack','ImportSelfMaintenanceMP','SetSqlHighPerfPowerPlan','SetHealthServiceRegTweaks','setTimeZone','setSystemLocaleENUS','addScomSDKSPNs','OpsDBEnableBroker','OpsDBEnableCLR','GetDbsDOPRecommend','EnforceTls12','SetDbsSqlMaintPlan','SetWebBindingSSL','UpdateMicrosoft')]
     [string[]]$Operation,
 
     [string]$configFilePath = "$PSScriptRoot\_config.ps1"
@@ -126,71 +129,6 @@ $DWSqlServerInstanceStr = $opsDWHObj.connStr
 if($Operation -contains 'EnableScomLinuxMonitoring'){
 
     write-host "Starting EnableScomLinuxMonitoring task."
-    Import-Module operationsManager -UseWindowsPowerShell
-
-    $MSNames = Get-SCOMManagementServer |?{!$_.isgateway} | select -expand Name
-
-    $wsmanNotworking = $false
-    foreach($MSName in $MSNames){
-     
-        if(! (Test-WSMan -ComputerName $MSName)){
-            write-host "wsman not available on: $Msname!";
-            $wsmanNotworking = $true
-        }
-    }
-    if($wsmanNotworking -eq $true){write-error "WSMAN remoting not working on all management servers.";break}
-
-    write-host "Exporting/Importing required SCX certs"
-    # get all MSs and invoke-command
-    Invoke-Command -computer $MSNames -ScriptBlock {
-    
-        $SCOMNasBackup = $Using:SCOMNasBackup
-        # Define the registry path for SCOM installation
-        $registryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft Operations Manager\3.0\Setup"
-        if ( !(Test-Path -Path $registryPath)){write-host "SCOM install path not found, is SCOM installed?";break;return;}else{
-            # Get the installation path value
-            $ScomInstallPath = Get-ItemProperty -Path $registryPath -Name "InstallDirectory" | Select-Object -ExpandProperty InstallDirectory
-        }
-
-        $dir = New-Item -Path $SCOMNasBackup -ItemType Directory -Force 
-        if(!$dir){Write-error "Couldn't create backup folder at: $SCOMNasBackup";break;return}
-    
-        try{
-            $exportFullname = "$SCOMNasBackup\Linux_$env:COMPUTERNAME.cer"
-            Start-Process -PSPath "$ScomInstallPath\scxcertconfig.exe" -ArgumentList "-export $exportFullname" -NoNewWindow -Wait
-            if($?){"[$env:COMPUTERNAME] Exported cert to: $exportFullname"}
-        }catch{write-error $_}
-    }
-
-    # Import all but our own CERT.
-    Invoke-Command -computer $MSNames -ScriptBlock {
-        
-        $SCOMNasBackup = $Using:SCOMNasBackup
-        
-        # Define the registry path for SCOM installation
-        $registryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft Operations Manager\3.0\Setup"
-        if ( !(Test-Path -Path $registryPath)){write-host "SCOM install path not found, is SCoM installed?";break;return;}else{
-            # Get the installation path value
-            $ScomInstallPath = Get-ItemProperty -Path $registryPath -Name "InstallDirectory" | Select-Object -ExpandProperty InstallDirectory
-        }
-
-        $exportFullname = "$SCOMNasBackup\Linux_$env:COMPUTERNAME.cer"
-        [array]$AllCerts = dir "$SCOMNasBackup\*.cer" 
-        [array]$importCerts = $AllCerts| ?{$_.name -ne "Linux_$env:COMPUTERNAME.cer"}
-        try{
-            write-host "[$env:COMPUTERNAME] Starting import of Certs."
-            foreach($importCert in $importCerts){
-                
-                    $exportFullname = "$SCOMNasBackup\Linux_$env:COMPUTERNAME.cer"
-                    Start-Process -PSPath "$ScomInstallPath\scxcertconfig.exe" -ArgumentList "–import $($importCert.fullname)" -NoNewWindow -Wait
-                    if($?){"[$env:COMPUTERNAME] Exported cert to: $exportFullname"}
-                
-            }
-        }catch{write-error $_}
-        write-host "[$env:COMPUTERNAME] Finished importing '$($importCerts.count)' of expected total of '$($AllCerts.count - 1)' Linux certs. (Self-cert is always skipped)"
-    }
-
-    #-----------------------------------------
 
     $module = Import-Module OperationsManager  -PassThru -UseWindowsPowerShell
     if(!$module){write-error "Missing required module 'operationsManager', is SCOM console installed here?";break;return;}
@@ -269,7 +207,7 @@ if($Operation -contains 'EnableScomLinuxMonitoring'){
     if( !(test-path $packsFolder)){Write-Error "Something went wrong finding Linux Management Packs folder at: $packsFolder";break}
 
     #we dont include the ACS packs
-    [array]$MPSToImport = dir -Path $packsFolder | ? {$_.Extension -in '.mpb','.mp' -and $_.name -match "^Microsoft.(Linux|Unix|Solaris|HPUX|AIX)."}
+    [array]$MPSToImport = dir -Path $packsFolder | ? {$_.Extension -in '.mpb','.mp' -and $_.name -match "^Microsoft.(Linux|Unix|Solaris|HPUX|AIX)."} #look inside oschecker.sh script to find these.
 
     write-host "Trying oneshot import of $($MPSToImport.count) packs"
     try{Import-SCOMManagementPack -Fullname $MPSToImport.fullname -ErrorAction 0 -PassThru}catch{continue}
@@ -281,6 +219,215 @@ if($Operation -contains 'EnableScomLinuxMonitoring'){
     
     write-host "Finished linux monitoring setup"
 
+}
+
+
+if($Operation -contains 'ImportSCXCerts'){
+
+    write-host "Starting ImportSCXCerts task."
+
+    #SB expects c:\temp\Linux_*.cer files for import.
+    $SB = {
+                
+        #$SCOMNasBackup = $Using:SCOMNasBackup
+        
+        # Define the registry path for SCOM installation
+        $registryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft Operations Manager\3.0\Setup"
+        if ( !(Test-Path -Path $registryPath)){write-host "SCOM install path not found, is SCoM installed?";break;return;}else{
+            # Get the installation path value
+            $ScomInstallPath = Get-ItemProperty -Path $registryPath -Name "InstallDirectory" | Select-Object -ExpandProperty InstallDirectory
+        }
+
+        [array]$AllCerts = dir "c:\temp\Linux_*.cer" 
+        [array]$importCerts = $AllCerts| ?{$_.name -ne "Linux_$env:COMPUTERNAME.cer"}
+       
+            write-host "[$env:COMPUTERNAME] Starting import of Certs."
+            foreach($importCert in $importCerts){
+
+                try{
+                    Start-Process -PSPath "$ScomInstallPath\scxcertconfig.exe" -ArgumentList "-import $($importCert.fullname)" -NoNewWindow -Wait
+                    if($?){write-host "[$env:COMPUTERNAME] Imported cert: $($importCert.fullname)"}else{write-error "Cert import failed!"}
+
+                }catch{write-error $_;continue}
+        }
+        write-host "[$env:COMPUTERNAME] Finished importing '$($importCerts.count)' of expected total of '$($AllCerts.count - 1)' Linux certs. (Self-cert is always skipped)"
+        write-host "===================================`n"
+    }
+
+    $isManagementServer = get-service -name omsdk -ea 0
+    $isAgentLike = get-service -name Healthservice -ea 0
+
+
+    $nasPathPresent = test-path $SCOMNasBackup -ea 0
+    if(!$nasPathPresent){
+        $certFiles0 = dir "c:\temp\Linux_*.cer"
+        if(!$certFiles0){write-error "Please manually copy all 'NAS Path\Linux_*.cer' files to 'c:\temp'. Localmode only as we cannot see NAS path: $SCOMNasBackup";break}   
+    }
+
+
+    # always start with THIS box, then worry about possible remote servers.
+    if($isAgentLike){
+    
+        try{
+            write-host "[$env:COMPUTERNAME] Trying to remotely copy all certs to 'c:\temp' from NAS path: $SCOMNasBackup"
+            dir "$SCOMNasBackup\Linux_*.cer" | Copy-Item -Destination "c:\temp" -Force -Verbose
+        }catch{
+            write-error $_
+            write-host "[$env:COMPUTERNAME] Skipping this server. Remote Fileshare not available on: $env:COMPUTERNAME. Please manually copy '$SCOMNasBackup\Linux_*.cer' files to 'c:\temp'"
+            continue
+        }
+
+        try{            
+            write-host "[$env:COMPUTERNAME] Attempting to import Certs at: c:\temp\Linux_*.cer"
+            $SB.Invoke()
+        }catch{
+            write-error $_
+            continue
+        }
+
+    }else{
+        write-error "SCOM not found. Is SCOM Gateway/ManagementServer role installed on this computer?"
+        break
+    }
+    
+    
+    if($isManagementServer -and $nasPathPresent){
+
+        write-host "Detected we are on a Management Server, attempting to import certs on all other Non-Gateway Management Servers..."
+        
+        $module = Import-Module operationsManager -UseWindowsPowerShell -PassThru
+        if(!$module){write-error "Couldn't load needed module: operationsManager";break;return}
+        
+        $MSNames = Get-SCOMManagementServer | ?{!$_.isgateway} | select -expand Name
+        if(!$MSNames){Write-Error "Couldn't determine Management Server names, check script/logs for errors.";break}
+
+        
+        #-----------------
+
+        foreach($MSName in $MSNames){
+            
+            write-host "[MSName] starting remote operations."
+
+            if($MSName -eq "$env:COMPUTERNAME.$env:USERDNSDOMAIN"){write-host "skipping remote operations on this server as it has been done";continue}
+
+            try{
+                write-host "[$MSName] Trying to remotely copy all other certs to '\\$MSName\c$\temp' from NAS path: $SCOMNasBackup"
+                dir "$SCOMNasBackup\Linux_*.cer" | Copy-Item -Destination "\\$MSName\c$\temp" -Force -Verbose
+            }catch{
+                write-warning $_
+                write-host "[$MSName] Skipping this server. Remote Fileshare not available on: $Msname. Please run this operation on the server directly"
+                continue
+            }
+            
+            try{
+                write-host "[$MSName] Trying to remotely copy import certs at '\\$MSName\c$\temp'"
+                Invoke-Command -ComputerName $MSName -ScriptBlock $SB
+            }catch{
+                write-warning $_
+                write-host "[$MSName] Skipping this server. Remote Fileshare not available on: $Msname. Please run this operation on the server directly"
+                continue
+            }
+
+        }
+
+    }else{
+        write-host "Skipping remote Management Server Operations while not on a Management Server"
+    }
+    
+
+    write-host "Finished ImportSCXCerts Operation"
+}
+
+
+if($Operation -contains 'ExportSCXCert'){
+
+    write-host "Starting ExportSCXCert task."
+
+    $SB = {
+
+        #$SCOMNasBackup = $Using:SCOMNasBackup
+        # Define the registry path for SCOM installation
+        $registryPath = "HKLM:\SOFTWARE\Microsoft\Microsoft Operations Manager\3.0\Setup"
+        if ( !(Test-Path -Path $registryPath)){write-host "SCOM install path not found, is SCOM installed?";break;return;}else{
+            # Get the installation path value
+            $ScomInstallPath0 = Get-ItemProperty -Path $registryPath -Name "InstallDirectory" | Select-Object -ExpandProperty InstallDirectory
+            $ScomInstallPath = $ScomInstallPath0.trimend('\')
+        }
+
+        $dir = New-Item -Path "C:\temp" -ItemType Directory -Force 
+        if(!$dir){Write-error "Couldn't create backup folder at: C:\temp";break;return}
+
+            try{
+                $exportFullname = "C:\temp\Linux_$env:COMPUTERNAME.cer"
+                write-host "Executing command: $ScomInstallPath\scxcertconfig.exe -export $exportFullname"
+                Start-Process -PSPath "$ScomInstallPath\scxcertconfig.exe" -ArgumentList "-export $exportFullname" -NoNewWindow -Wait 
+                if($?){"[$env:COMPUTERNAME] Exported cert to: $exportFullname"}else{write-error "Cert export failed!"}
+                
+            }catch{write-error $_}
+    }
+
+    $nasPathPresent = test-path $SCOMNasBackup -ea 0
+    if(!$nasPathPresent){write-warning "Local Mode only since we can't see backup path: $SCOMNasBackup"}
+
+    $isManagementServer = get-service -name omsdk -ea 0
+    $isAgentLike = get-service -name Healthservice -ea 0
+    if($isManagementServer -and $nasPathPresent){
+
+        write-host "Detected we are on a Management Server, attempting to export certs on all other Non-Gateway Management Servers..."
+        $module = Import-Module operationsManager -UseWindowsPowerShell -PassThru
+        if(!$module){write-error "Couldn't load needed module: operationsManager";break;return}
+        
+        $MSNames = Get-SCOMManagementServer | ?{!$_.isgateway} | select -expand Name
+        if(!$MSNames){Write-Error "Couldn't determine Management Server names, check script/logs for errors.";break}
+
+        #-----------------
+        foreach($MSName in $MSNames){
+            
+            try{
+                write-host "[$MSName] Attempting to export Cert to c:\temp"
+                Invoke-Command -ComputerName $MSName -ScriptBlock $SB
+            }catch{
+                write-error $_
+                continue
+            }
+
+            try{
+                write-host "[$MSName] Trying to remotely copy all certs to NAS path: $SCOMNasBackup"
+                dir "\\$MSName\c$\temp\Linux_*.cer" | Copy-Item -Destination $SCOMNasBackup -Force -Verbose
+            }catch{
+                write-warning $_
+                write-host "[$MSName] Skipping this server. Remote Fileshare not available on: $Msname. Please manually copy 'c:\temp\Linux_$MSName.cer' to '$SCOMNasBackup'"
+                continue
+            }
+        }
+
+    }elseif($isAgentLike){
+        
+        write-host "Detected we are on a Gateway Server/localMode, only exporting this server's cert..."
+
+        try{
+            write-host "[$env:COMPUTERNAME] Attempting to export Cert to c:\temp"
+            $sb.Invoke()
+        }catch{
+            write-error $_
+            continue
+        }
+
+        try{
+            write-host "[$env:COMPUTERNAME] Trying to remotely copy all certs to NAS path: $SCOMNasBackup"
+            dir "c:\temp\Linux_$($env:COMPUTERNAME).cer" | Copy-Item -Destination $SCOMNasBackup -Force -Verbose
+        }catch{
+            write-warning $_
+            write-host "[$env:COMPUTERNAME] Skipping this server. Remote Fileshare not available on: $env:COMPUTERNAME. Please manually copy 'c:\temp\Linux_$MSName.cer' to '$SCOMNasBackup'"
+            continue
+        }
+
+    }else{
+        write-error "SCOM not found. Is SCOM Gateway/ManagementServer role installed on this computer?"
+        break
+    }
+
+    write-host "Finished ExportSCXCert Operation"
 }
 
 
@@ -339,6 +486,7 @@ if($Operation -contains 'PreSizeSCOMOpsDB'){
 
 }
 
+
 if($Operation -contains 'PreSizeSCOMOpsDWH'){
     
     write-host "[PreSizeSCOMOpsDWH] Starting to Presize the Ops Datawarehouse"
@@ -376,9 +524,6 @@ if($Operation -contains 'PreSizeSCOMOpsDWH'){
     }
 
 }
-
-
-
 
 
 if($Operation -contains 'EnableOpsDBAutoGrowth'){
@@ -430,7 +575,7 @@ if($Operation -contains 'EnableAgentDefaultProxying'){
     Invoke-Command -Session $sess -ScriptBlock {
     
         #. $using:configFilePath
-        # If you want to use this remotely – change “localhost” above to the FQDN of your SCOM server:
+        # If you want to use this remotely - change "localhost" above to the FQDN of your SCOM server:
         add-pssnapin "Microsoft.EnterpriseManagement.OperationsManager.Client";
         new-managementGroupConnection -ConnectionString:$($using:RMSServer);
 
@@ -504,9 +649,6 @@ if($Operation -contains 'ImportSelfMaintenanceMP'){
     }
 
 }
-
-
-
 
 
 if($Operation -contains 'SetSqlHighPerfPowerPlan'){
@@ -600,8 +742,8 @@ if($Operation -contains 'addScomSDKSPNs'){
     if(!$module){write-error "Missing required module 'operationsManager', is SCOM console installed here?";break;return;}
     $sess = Get-PSSession | ?{$_.name -eq "WinPSCompatSession"} | select -first 1
     
-    $ms = Get-SCOMManagementServer
-    $ms2 = $ms | ?{$_.IsGateway -eq $false} | select -expand Name
+    $ms0 = Get-SCOMManagementServer
+    $ms2 = $ms0 | ?{$_.IsGateway -eq $false} | select -expand Name
 
     if(!$ms2){write-error "Couldn't find SCOM Management Servers";break}
 

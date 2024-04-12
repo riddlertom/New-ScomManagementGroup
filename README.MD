@@ -110,8 +110,6 @@ New-ScomManagementGroup is a collection of Powershell scripts designed to help S
 
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation ImportSelfMaintenanceMP # MANUALLY Review MP documentation and set overrides here```
 
-```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation EnableScomLinuxMonitoring```
-
 
 ## AFTER all management servers are installed, run the following (est. 1 min): 
 ```.\2_InstallSCOM.ps1 -configFilePath .\_config2019Prod.ps1 -Roles addScomSDKSPNs```
@@ -144,9 +142,27 @@ New-ScomManagementGroup is a collection of Powershell scripts designed to help S
 
 Note: You may need to manually copy certs to c:\temp first if the Gateway server is in an isolated network (see script for info)
 
+# Linux / SCX Monitoring:
+## While on the RMS, Begin enabling Linux monitoring and Linux Cert Signing with (est. 10 min):
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation EnableScomLinuxMonitoring```
+
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation ExportSCXCert```
+
+## On Each Gateway server, assuming network isolation, also run (est 15 min):
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation ExportSCXCert```
+
+
+
+## On the RMS, finish Linux Cert Signing with (est. 5 min):
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation ImportSCXCerts```
+
+## On Each Gateway server, assuming network isolation, also run (est 15 min):
+```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation ImportSCXCerts```
 
 ## Optionally: On All Management Servers and Gateway servers, if you want to enforce higher TLS1.2 security, run (est. 10 min):
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation EnforceTls12```
+
+
 
 ## Now go through and update SCOM servers to UR=latest via windows update.
 As of SCOM 2019 UR 1, Microsoft/Windows Update will patch your management servers, update SQL and Management Packs with [Simplified patching](https://support.microsoft.com/en-gb/topic/simplified-scom-2019-management-server-patching-cb14f0f5-ab82-44bf-f591-dfa8c8474e13).
@@ -168,6 +184,8 @@ The following command can be ran until the server no longer patches & reboots:
 
 ```.\3_BestPractices.ps1 -configFilePath .\_config2019Prod.ps1 -Operation UpdateMicrosoft```
 
+* After updating to the latest UR, update the Linux (or other) Management Packs in the SCOM console at:
+  Administration > Updates And Recommendation > "UNIX/Linux Monitoring" > Get MP > Install
 
 # Agents 
 ## Windows: dual-home Windows Agents with:
@@ -176,10 +194,8 @@ The following command can be ran until the server no longer patches & reboots:
 ## Windows: After testing, remove the old Environment from Windows Agents with:
 `.\41_WindowsAgents.ps1 -configFilePath .\_config2019Prod.ps1 -Operation RemoveOldWinAgentMG`
 
-## Linux: dual-home Linux Agents with:
+## Linux: Migrate Linux Agents from Old Environment to New Environment with (Linux Dual homing unsupported):
 `.\42_LinuxAgents.ps1 -configFilePath .\_config2019Prod.ps1 -Operation AddAgentToMG`
 
-## Linux: After testing, remove the old Environment from Linux Agents with:
-`.\42_LinuxAgents.ps1 -configFilePath .\_config2019Prod.ps1 -Operation RemoveAgentFromOldMG`
 
 

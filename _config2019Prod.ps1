@@ -42,13 +42,13 @@ $DefaulLinuxPoolName = "Linux Pool 01" #where linux agents are observed from
 ##############################################
 ######### ISO Names / Executables ############
 ##############################################
-$SQLServerISO = '\\rectifier\datashare2\Apps\SQL Server\Sql server 2019\SQLServer2019-x64-ENU.iso' #Location of the SQL Server 2019 ISO (https://go.microsoft.com/fwlink/?linkid=866664) (Default: ISOs\SQLServer2019-x64-ENU.iso)
-$SsrsExeLocation = '\\rectifier\datashare2\Apps\SQL Server\Sql server 2019\SQLServerReportingServices.exe'
-$SCOMEXELocation = '\\rectifier\datashare2\Apps\SystemCenter\SCOM 2019\SCOM_2019.exe' #Location of the SCOM monolithic Executable (https://www.microsoft.com/en-US/evalcenter/evaluate-system-center-2019) (Default: SoftwarePackages\SCOM_2019.exe)
-$SSMSexeDir = "\\rectifier\datashare2\Apps\SQL Server\Sql server 2019" #directory that contains SSMS-Setup-ENU.exe
+$SQLServerISO = '\\tsclient\z\Apps\SQL Server\Sql server 2019\SQLServer2019-x64-ENU.iso' #Location of the SQL Server 2019 ISO (https://go.microsoft.com/fwlink/?linkid=866664) (Default: ISOs\SQLServer2019-x64-ENU.iso)
+$SsrsExeLocation = '\\tsclient\z\Apps\SQL Server\Sql server 2019\SQLServerReportingServices.exe'
+$SCOMEXELocation = '\\tsclient\z\Apps\SystemCenter\SCOM 2019\SCOM_2019.exe' #Location of the SCOM monolithic Executable (https://www.microsoft.com/en-US/evalcenter/evaluate-system-center-2019) (Default: SoftwarePackages\SCOM_2019.exe)
+$SSMSexeDir = "\\tsclient\z\Apps\SQL Server\Sql server 2019" #directory that contains SSMS-Setup-ENU.exe
 $SCOMSetupLocalFolder = 'C:\scomSetup' # Location containing expanded scom install files with setup.exe (extracted from $SCOMEXELocation) 
 
-$SCOMNasBackup = '\\rectifier\datashare2\Apps\SystemCenter\_recovery' #location for cert/keys storage/retrieval
+$SCOMNasBackup = '\\tsclient\z\Apps\SystemCenter\_recovery' #location for cert/keys storage/retrieval
 ##############################################
 
 

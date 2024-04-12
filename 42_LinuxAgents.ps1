@@ -27,7 +27,6 @@
         AddAgentToMG - Tells SCOM to discover, and add the agent to the linux resource pool. Normal install process will occur if no cert/agent bins are installed.
         RemoveAgentFromOldMG - Tells SCOM to remove agent from monitoring in the old environment. This does NOT uninstall the binary from the server.
 
-
 .NOTES
     Needs posh-SSH and operationsManager modules.
     Powershell 5.1 was used here due to the dotnetframework scx creds
@@ -49,7 +48,7 @@ Start-Transcript -Path ("$PSScriptRoot\Logs\$($script:MyInvocation.MyCommand.nam
 if($PSVersionTable.PSVersion.Major -ne 5){write-error "This script must be ran on WINDOWSPowershell 5.1 for old dotnetframework objs to work";return}
 
 #$domainJoinCred = New-Object System.Management.Automation.PsCredential($domainUser,$secstring)
-if( !(Test-Path $configFilePath) ){write-error "Unable to find config file: $configFilePath"; pause;return;}
+if( !(Test-Path $configFilePath) ){write-error "Unable to find config file: $configFilePath"; return;}
 . $configFilePath
 
 
@@ -61,8 +60,8 @@ if( !(Test-Path $configFilePath) ){write-error "Unable to find config file: $con
 
 $moduleName = "Posh-SSH"
 $Module = get-Module $moduleName -ListAvailable
-if(!$Module ){ $Module = Install-Module $moduleName -Force -PassThru}
-if(!$Module){Write-Error "Unable to install needed module: $moduleName";pause;return}
+if(!$Module ){ $nullme = Install-Module $moduleName -Force -verbose; $Module = get-Module $moduleName -ListAvailable}
+if(!$Module){Write-Error "Unable to install needed module: $moduleName";return}
 try{Import-Module $moduleName -ea 0}catch{continue} #suppress scary dll conflicts
 
 
@@ -417,7 +416,8 @@ Function signLinuxAgentCert{
     $scxEXE = "$($global:ScomInstallPath)scxcertconfig.exe"
     if( !(test-path $scxEXE) ){write-error "Couldn't find scxcertconfig.exe at:  $scxEXE";return}
     
-    $CertbackupDir = new-item -Path "c:\SCXCertsBackup" -ItemType Directory -Force #store certs here
+    $path1 = "$SCOMNasBackup\SCXCertsBackup"
+    $CertbackupDir = new-item -Path $path1 -ItemType Directory -Force #store certs here
 
     foreach($computername in $computernames){
 
